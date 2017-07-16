@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Socket</title>
+    <script type="text/javascript" src="/socket.io/socket.io.js"></script>     
+</head>
+<body>
+    <div class="content">
+        <div class="top">
+         <div class="left">
+             <ul class="roomList" onclick="chooseRoom(event)">
+                 <li class="selected" value="10000">大厅</li>
+             </ul>
+         </div>
+        <div class="right">
+            <ul class="history">
+            </ul>
+        </div>
+        </div>
+        <div class="bottom">
+            <textarea class="inputMessage" onkeydown="sendMessage(event)"></textarea>
+        </div>
+    </div>
+    <div class="room">
+        房间号:<input type="text" id = "roomId" maxlength="6">
+        <button onclick="joinRoom()" style="size: 12px;">加入</button>
+    </div>
+</body>
+    <script type="text/javascript">
+        var inputMessage = document.getElementsByClassName("inputMessage")[0];
+        var historyContent = document.getElementsByClassName("history")[0];
+        var roomList = document.getElementsByClassName("roomList")[0];
+        var uid = Math.floor(100000 * Math.random());
+        var _selectRoom = 10000;
+        var socket = io('http://localhost:80', {
+            query: {
+                uid: uid
+            }
+        });
+        window.onunload = function () {
+            console.log("离开页面");
+            socket.emit("disconnection", uid);
+        }
+        socket.on("message", (data) => {
+            let obj = JSON.parse(data);
+            console.log("message", obj);
+            switch(obj.msg) {
+                case "message":
+                    addHistory(obj.data, obj.uid);
+                    break;
+                case "roomlist":
+                    showRoom(obj.data);
+                    break;
+            }
+        });
+        socket.on("ping", () => {
+            console.log("ping");
+        })
+        socket.on("pong", () => {
+            console.log("pong");
+        })
+        function sendMessage(event) {
+            // console.log("event", event);
+            if (event.key == "Enter") {
+                let obj = {};
+                let value =  inputMessage.value.replace(/(^\s*)/g, "");
+                inputMessage.value = "";
+                console.log("发送消息", value);
+                obj.data = value;
+                obj.uid = uid;
+                if (_selectRoom == 10000) {
+                    obj.msg = "sendmessage";
+                } else {
+                    obj.msg = "roommessage";
+                }
+                socket.emit("SendMessage", JSON.stringify(obj));
+                // addHistory(value);   
+            }
+        }
+        function addHistory(data, userId) {
+            console.log("添加聊天记录", data, userId)
+            let li = document.createElement("li");
+            li.className = "other";
+            if (userId == uid) {
+                li.className = "myself";
+            }
+            li.innerText = data;
+            console.log("history",  historyContent);
+            historyContent.appendChild(li);
+            let _scroll = historyContent.parentNode;
+            _scroll.scrollTop = _scroll.scrollHeight;
+        }
+        function showRoom (data) {
+            console.log("showRoom", data);
+            Object.keys(data).map(item => {
+                let li = document.createElement("li");
+                li.value = item;
+                let count = data[item].length;
+                li.innerHTML = "房间号:" + item + "</br>人数:" + count;
+                roomList.appendChild(li);
+            })
+        }
+        function joinRoom() {
+            let roomId = document.getElementById("roomId").value;
+            let obj = {};
+            console.log("roomId", roomId);
+            if (roomId.length == 6) {  
+                obj.roomId = roomId;
+                obj.msg = "joinroom";
+                obj.uid = uid;
+                socket.emit("SendMessage", JSON.stringify(obj));
+            } else {
+                console.log("房间号参数不对");
+            }
+        }
+        function chooseRoom(event) {
+            console.log("choose room", event);
+            if (event.target.tagName == "LI") {
+                console.log("children", roomList.children);
+                let children = roomList.children;
+                console.log("length", children[0])
+                for (let i=children.length; i > 0;) {
+                    children[--i].className = "unselect";
+                }
+                let li = event.target;
+                li.className = "selected";
+                _selectRoom = li.value;
+            }
+        }
+</script>
+<style>
+    * {
+        padding: 0;
+        margin: 0;
+    }
+    ::-webkit-scrollbar{
+        width: 0px;
+    }
+    .content {
+        width: 600px;
+        height: 600px;
+        background-color: yellow;
+    }
+    .top {
+        height:80%;
+        width:100%;
+    }
+    .left {
+        width: 20%;
+        height: 100%;
+        background-color: gray;
+        float: left;
+        overflow-y: auto;
+    }
+    .left .roomList {
+        color: white;
+        font-size: 16px;
+        line-height: 40px;
+    }
+    .left .roomList li {
+        margin-top: 10px;
+        background-color: cadetblue;
+        text-align: center;
+    }
+    .left .roomList .selected {
+        background-color: steelblue;
+    }
+    .right {
+        width: 80%;
+        height:100%;
+        background-color: #4cc788;
+        float: right;
+        overflow-y: auto;
+    }
+    .inputMessage {
+        width:100%;
+        height:100%;
+        font-size: 18px;
+    }
+    .bottom {
+        width:100%;
+        height: 20%;
+    }
+    .history {
+        width: 100%;
+        height:100%;
+        line-height: 26px;
+        padding-top: 5px;
+        /* padding-left: 10px; */
+        /* padding-right: 10px; */
+        list-style-type: none;
+    }
+    .history .myself {
+        text-align: right;
+        width: 80%;
+        float: right;
+    }
+    .history .other {
+        width: 80%;
+        float: left;
+    }
+    .history li {
+        padding-left: 10px;
+        padding-right:5px;
+    }
+    .room {
+        position: absolute;
+        left: 620px;
+        top:100px;
+        font-size: 22px;
+    }
+    .room button{
+        height: 40px;
+        width: 40px;
+    }
+    .room input {
+        font-size: 22px;
+        width: 100px;
+    }
+</style>
+</html>
