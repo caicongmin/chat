@@ -1,4 +1,5 @@
 var io = require('socket.io')(80)
+
 // Sockets 存放 uid 以及对应的socket实例
 var Sockets = {};
 // room 存放 rmmoId 以及对应的用户信息 (uid...)
